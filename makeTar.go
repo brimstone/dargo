@@ -3,9 +3,30 @@ package dargo
 import (
 	"archive/tar"
 	"bytes"
+	"debug/elf"
+	"fmt"
 	"io/ioutil"
 	"os"
 )
+
+func readMe() ([]byte, error) {
+	self, err := ioutil.ReadFile(os.Args[0])
+	if err != nil {
+		return nil, err
+	}
+
+	e, err := elf.NewFile(bytes.NewReader(self))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = e.DynamicSymbols()
+	if err == nil || err.Error() != "no symbol section" {
+		return nil, fmt.Errorf("Not a static binary")
+	}
+
+	return self, nil
+}
 
 // makeTar builds a tar ready to upload to a Docker engine including a
 // Dockerfile and a copy of the running binary
@@ -16,7 +37,7 @@ func makeTar() (*bytes.Reader, error) {
 	// Create a new tar archive.
 	tw := tar.NewWriter(buf)
 
-	self, err := ioutil.ReadFile(os.Args[0])
+	self, err := readMe()
 	if err != nil {
 		return nil, err
 	}
