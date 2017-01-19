@@ -6,9 +6,10 @@ Deploy apps directly to docker.
 
 Why?
 ====
-Inspired from Kelsey Hightower's
-[Kargo](https://github.com/kelseyhightower/kargo) library, I wanted also be able
-to deploy applications directly to Docker Swarm
+Inspired from Kelsey Hightower's [presentation at dotGo 2016](https://www.youtube.com/watch?v=nhmAyZNlECw)
+of [Kargo](https://github.com/kelseyhightower/kargo) library, I wanted also be
+able to deploy applications directly to Docker Swarm
+
 
 Usage
 =====
