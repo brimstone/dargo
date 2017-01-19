@@ -2,6 +2,8 @@ dargo
 =====
 Deploy apps directly to docker.
 
+[![GoDoc](https://godoc.org/github.com/brimstone/dargo?status.svg)](https://godoc.org/github.com/brimstone/dargo)
+
 Why?
 ====
 Inspired from Kelsey Hightower's
