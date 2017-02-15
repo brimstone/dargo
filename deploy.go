@@ -16,6 +16,27 @@ type DeployOptions struct {
 	Tags []string
 }
 
+func buildImage(buildOptions types.ImageBuildOptions, cli *client.Client) error {
+	self, err := makeTar()
+	if err != nil {
+		return fmt.Errorf("Error building tar for image build: %v", err)
+	}
+
+	buildResponse, err := cli.ImageBuild(context.Background(), self, buildOptions)
+	if err != nil {
+		return fmt.Errorf("Error starting image build: %v", err)
+	}
+	defer buildResponse.Body.Close()
+
+	all, err := ioutil.ReadAll(buildResponse.Body)
+	if err != nil {
+		return fmt.Errorf("Error reading from docker client: %v", err)
+	}
+	fmt.Println(string(all))
+
+	return nil
+}
+
 // Deploy deploys to the Docker engine reachable via environment variables and
 // defaults.
 func Deploy(o DeployOptions) error {
@@ -26,25 +47,14 @@ func Deploy(o DeployOptions) error {
 
 	cli, err := client.NewEnvClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating docker client: %v", err)
 	}
 
-	self, err := makeTar()
+	err = buildImage(buildOptions, cli)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error building image: %v", err)
 	}
 
-	buildResponse, err := cli.ImageBuild(context.Background(), self, buildOptions)
-	if err != nil {
-		return err
-	}
-	defer buildResponse.Body.Close()
-
-	all, err := ioutil.ReadAll(buildResponse.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(all))
 	return nil
 }
 
