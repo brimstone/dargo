@@ -1,10 +1,11 @@
 package dargo
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -18,6 +19,10 @@ import (
 type DeployOptions struct {
 	Tags       []string
 	Foreground bool
+}
+
+type buildOutput struct {
+	Stream string `json:"stream"`
 }
 
 func buildImage(o DeployOptions, cli *client.Client) error {
@@ -36,11 +41,13 @@ func buildImage(o DeployOptions, cli *client.Client) error {
 	}
 	defer buildResponse.Body.Close()
 
-	all, err := ioutil.ReadAll(buildResponse.Body)
-	if err != nil {
-		return fmt.Errorf("Error reading from docker client: %v", err)
+	scanner := bufio.NewScanner(buildResponse.Body)
+
+	for scanner.Scan() {
+		var output buildOutput
+		err = json.Unmarshal([]byte(scanner.Text()), &output)
+		fmt.Print(output.Stream)
 	}
-	fmt.Println(string(all))
 
 	return nil
 }
