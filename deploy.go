@@ -3,20 +3,28 @@ package dargo
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	"github.com/docker/engine-api/types/network"
 )
 
 // DeployOptions control attributes about the resulting Docker Image
 type DeployOptions struct {
-	Tags []string
+	Tags       []string
+	Foreground bool
 }
 
-func buildImage(buildOptions types.ImageBuildOptions, cli *client.Client) error {
+func buildImage(o DeployOptions, cli *client.Client) error {
+	buildOptions := types.ImageBuildOptions{
+		Tags: o.Tags,
+	}
+
 	self, err := makeTar()
 	if err != nil {
 		return fmt.Errorf("Error building tar for image build: %v", err)
@@ -37,22 +45,66 @@ func buildImage(buildOptions types.ImageBuildOptions, cli *client.Client) error 
 	return nil
 }
 
+func runImage(runOptions DeployOptions, cli *client.Client) error {
+	containerConfig := container.Config{
+		Image: runOptions.Tags[0],
+	}
+
+	if runOptions.Foreground {
+		containerConfig.AttachStdin = true
+		containerConfig.AttachStdout = true
+		containerConfig.AttachStderr = true
+		containerConfig.Tty = true
+		containerConfig.OpenStdin = true
+		containerConfig.StdinOnce = true
+	}
+	networkConfig := network.NetworkingConfig{}
+	hostConfig := container.HostConfig{}
+
+	createResponse, err := cli.ContainerCreate(context.Background(), &containerConfig, &hostConfig, &networkConfig, "")
+	if err != nil {
+		return fmt.Errorf("Error creating container: %v", err)
+	}
+
+	attachResp, err := cli.ContainerAttach(context.Background(), createResponse.ID, types.ContainerAttachOptions{
+		Stdin:  true,
+		Stdout: true,
+		Stderr: true,
+		Stream: true,
+	})
+	go func() { io.Copy(attachResp.Conn, os.Stdin) }()
+	go func() { io.Copy(os.Stdout, attachResp.Reader) }()
+
+	err = cli.ContainerStart(context.Background(), createResponse.ID, types.ContainerStartOptions{})
+
+	if err != nil {
+		return fmt.Errorf("Error starting container: %v", err)
+	}
+
+	_, err = cli.ContainerWait(context.Background(), createResponse.ID)
+	if err != nil {
+		return fmt.Errorf("Error waiting for container to exit: %v", err)
+	}
+	return nil
+}
+
 // Deploy deploys to the Docker engine reachable via environment variables and
 // defaults.
 func Deploy(o DeployOptions) error {
-
-	buildOptions := types.ImageBuildOptions{
-		Tags: o.Tags,
-	}
 
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		return fmt.Errorf("Error creating docker client: %v", err)
 	}
 
-	err = buildImage(buildOptions, cli)
+	err = buildImage(o, cli)
 	if err != nil {
 		return fmt.Errorf("Error building image: %v", err)
+	}
+
+	err = runImage(o, cli)
+	if err != nil {
+		return fmt.Errorf("Error starting image: %v", err)
 	}
 
 	return nil

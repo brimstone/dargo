@@ -8,7 +8,8 @@ import (
 
 func main() {
 	dargo.DeployAndExit(dargo.DeployOptions{
-		Tags: []string{"hello-dargo"},
+		Tags:       []string{"hello-dargo"},
+		Foreground: true,
 	})
 	fmt.Println("Hello world!")
 }
